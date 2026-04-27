@@ -1,0 +1,18 @@
+# Binaries
+/lim
+/*.exe
+/*.dll
+/*.so
+/*.dylib
+
+# Test binary, coverage, and profiling
+*.test
+*.out
+coverage.*
+*.prof
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
