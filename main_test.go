@@ -48,6 +48,24 @@ func TestRun_StatusFlag(t *testing.T) {
 	}
 }
 
+func TestRun_LocationFlag(t *testing.T) {
+	tmp := t.TempDir()
+	stateFile := filepath.Join(tmp, "images.json")
+
+	oldProvider := stateFilePathProvider
+	stateFilePathProvider = func() (string, error) { return stateFile, nil }
+	t.Cleanup(func() { stateFilePathProvider = oldProvider })
+
+	var out, errOut bytes.Buffer
+	code := run([]string{"lim", "--location"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d (stderr=%q)", code, errOut.String())
+	}
+	if strings.TrimSpace(out.String()) != stateFile {
+		t.Fatalf("unexpected location output: %q", out.String())
+	}
+}
+
 func TestParseDockerEventsLine_ContainerCreate(t *testing.T) {
 	line := "2026-04-27T07:29:50.123456789Z container create 0123456789ab (image=alpine:3.20, name=foo)"
 	image, ts, ok := parseDockerEventsLine(line)

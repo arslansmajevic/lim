@@ -18,6 +18,7 @@ func rootCmd(args []string, out io.Writer, errOut io.Writer) int {
 	fs := flag.NewFlagSet("lim", flag.ContinueOnError)
 	fs.SetOutput(errOut)
 	statusOnly := fs.Bool("status", false, "Print status and exit")
+	locationOnly := fs.Bool("location", false, "Print the full path where timestamps are persisted and exit")
 	shutdown := fs.Bool("shutdown", false, "Stop the background docker-events monitor")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -28,6 +29,16 @@ func rootCmd(args []string, out io.Writer, errOut io.Writer) int {
 			fmt.Fprintf(errOut, "status error: %v\n", err)
 			return 1
 		}
+		return 0
+	}
+
+	if *locationOnly {
+		path, err := stateFilePath()
+		if err != nil {
+			fmt.Fprintf(errOut, "location error: %v\n", err)
+			return 1
+		}
+		fmt.Fprintln(out, path)
 		return 0
 	}
 

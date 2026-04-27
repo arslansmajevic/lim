@@ -41,6 +41,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  lim            # show status and ensure docker-events monitoring is running")
 	fmt.Fprintln(w, "  lim --status   # print status only (no side effects)")
+	fmt.Fprintln(w, "  lim --location # print where timestamps are stored")
 	fmt.Fprintln(w, "  lim --shutdown # stop background monitoring")
 	fmt.Fprintln(w, "  lim list       # print images and their last-run timestamps")
 	fmt.Fprintln(w, "  lim list --before Nh  # only show images last run more than Nh ago (hours only, e.g. 24h)")
