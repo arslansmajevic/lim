@@ -24,3 +24,24 @@ go build -o lim .
 ./lim            # monitor
 ./lim list
 ```
+
+## Distribute (Linux)
+
+Build static Linux binaries:
+
+```sh
+make dist-linux
+ls -lah dist/
+```
+
+Install on a Linux machine so `lim` is runnable from anywhere:
+
+```sh
+sudo install -m 0755 ./dist/lim-linux-amd64 /usr/local/bin/lim
+lim
+```
+
+Notes:
+
+- `lim` requires Docker to be installed and the daemon reachable; otherwise it exits with an error.
+- Only one `lim` monitor instance runs at a time; re-running `lim` prints "monitor already running".

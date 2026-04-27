@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,11 +19,29 @@ import (
 var nowProvider = time.Now
 
 func monitorCmd(out io.Writer, errOut io.Writer) int {
+	if err := checkDockerAvailable(); err != nil {
+		fmt.Fprintf(errOut, "docker unavailable: %v\n", err)
+		return 1
+	}
+
 	stateFile, err := stateFilePath()
 	if err != nil {
 		fmt.Fprintf(errOut, "state path error: %v\n", err)
 		return 1
 	}
+
+	lockPath := filepath.Join(filepath.Dir(stateFile), "monitor.lock")
+	lock, acquired, err := acquireLock(lockPath)
+	if err != nil {
+		fmt.Fprintf(errOut, "monitor lock error: %v\n", err)
+		return 1
+	}
+	if !acquired {
+		fmt.Fprintln(out, "lim: monitor already running")
+		return 0
+	}
+	defer func() { _ = lock.release() }()
+
 	st, err := loadImageState(stateFile)
 	if err != nil {
 		fmt.Fprintf(errOut, "state load error: %v\n", err)
@@ -32,26 +51,34 @@ func monitorCmd(out io.Writer, errOut io.Writer) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
-	cmd := exec.CommandContext(ctx, "docker",
-		"events",
-		"--filter", "type=container",
-		"--filter", "event=create",
-	)
+	var cmd *exec.Cmd
+	var stdout io.ReadCloser
+	var stderr io.ReadCloser
+	for attempt := 1; attempt <= 3; attempt++ {
+		cmd = exec.CommandContext(ctx, "docker",
+			"events",
+			"--filter", "type=container",
+			"--filter", "event=create",
+		)
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		fmt.Fprintf(errOut, "docker events stdout: %v\n", err)
-		return 1
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		fmt.Fprintf(errOut, "docker events stderr: %v\n", err)
-		return 1
-	}
+		stdout, err = cmd.StdoutPipe()
+		if err != nil {
+			fmt.Fprintf(errOut, "docker events stdout: %v\n", err)
+			return 1
+		}
+		stderr, err = cmd.StderrPipe()
+		if err != nil {
+			fmt.Fprintf(errOut, "docker events stderr: %v\n", err)
+			return 1
+		}
 
-	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(errOut, "start docker events: %v\n", err)
-		return 1
+		if err := cmd.Start(); err == nil {
+			break
+		} else if attempt == 3 {
+			fmt.Fprintf(errOut, "start docker events: %v\n", err)
+			return 1
+		}
+		time.Sleep(time.Duration(attempt) * time.Second)
 	}
 
 	// Forward stderr in the background.
