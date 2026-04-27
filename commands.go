@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -41,6 +42,8 @@ func monitorCmd(out io.Writer, errOut io.Writer) int {
 		return 0
 	}
 	defer func() { _ = lock.release() }()
+	_ = lock.setPID(os.Getpid())
+	defer func() { _ = clearMonitorStatus() }()
 
 	st, err := loadImageState(stateFile)
 	if err != nil {
@@ -48,8 +51,26 @@ func monitorCmd(out io.Writer, errOut io.Writer) int {
 		return 1
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	startedAt := nowProvider().UTC()
+	_ = writeMonitorStatus(monitorStatus{PID: os.Getpid(), StartedAt: startedAt, LastHeartbeat: startedAt})
+	stopHeartbeat := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				n := nowProvider().UTC()
+				_ = writeMonitorStatus(monitorStatus{PID: os.Getpid(), StartedAt: startedAt, LastHeartbeat: n})
+			case <-stopHeartbeat:
+				return
+			}
+		}
+	}()
+	defer close(stopHeartbeat)
 
 	var cmd *exec.Cmd
 	var stdout io.ReadCloser
@@ -103,6 +124,7 @@ func monitorCmd(out io.Writer, errOut io.Writer) int {
 	}
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintf(errOut, "read docker events: %v\n", err)
+		_ = writeMonitorStatus(monitorStatus{PID: os.Getpid(), StartedAt: startedAt, LastHeartbeat: nowProvider().UTC(), LastError: err.Error()})
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
 		return 1
@@ -113,6 +135,7 @@ func monitorCmd(out io.Writer, errOut io.Writer) int {
 		return 0
 	}
 	fmt.Fprintf(errOut, "docker events exited: %v\n", err)
+	_ = writeMonitorStatus(monitorStatus{PID: os.Getpid(), StartedAt: startedAt, LastHeartbeat: nowProvider().UTC(), LastError: err.Error()})
 	return 1
 }
 

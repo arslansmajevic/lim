@@ -43,3 +43,19 @@ func (l *fileLock) release() error {
 	_ = syscall.Flock(int(l.f.Fd()), syscall.LOCK_UN)
 	return l.f.Close()
 }
+
+func (l *fileLock) setPID(pid int) error {
+	if l == nil || l.f == nil {
+		return nil
+	}
+	if err := l.f.Truncate(0); err != nil {
+		return err
+	}
+	if _, err := l.f.Seek(0, 0); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(l.f, "%d\n", pid); err != nil {
+		return err
+	}
+	return l.f.Sync()
+}

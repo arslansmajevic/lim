@@ -11,9 +11,10 @@ go run .
 Examples:
 
 ```sh
-go run .              # monitors `docker events` (container create)
+go run .              # shows status and ensures monitoring is running in background
 go run . list         # prints images + last-run timestamps
 go run . list --before 24h  # only images last run > 24 hours ago
+go run . --shutdown   # stop background monitor
 go run . help
 ```
 
@@ -21,8 +22,9 @@ go run . help
 
 ```sh
 go build -o lim .
-./lim            # monitor
+./lim            # shows status and starts/ensures background monitor
 ./lim list
+./lim --shutdown
 ```
 
 ## Distribute (Linux)
