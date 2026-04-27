@@ -31,6 +31,24 @@ go build -o lim .
 
 ### Download from GitHub Releases
 
+One-liner install (downloads latest release and installs to `/usr/local/bin/lim`):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/install.sh | sh
+```
+
+One-liner uninstall:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/uninstall.sh | sh
+```
+
+Optional uninstall + purge local config/state:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/uninstall.sh | PURGE_CONFIG=1 sh
+```
+
 1) Download the right binary for your machine (amd64 vs arm64) from the GitHub Release assets.
 
 Example (amd64) — downloads from the latest GitHub Release:
