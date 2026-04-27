@@ -66,6 +66,21 @@ func TestRun_LocationFlag(t *testing.T) {
 	}
 }
 
+func TestRun_VersionFlag(t *testing.T) {
+	old := version
+	version = "v9.9.9-test"
+	t.Cleanup(func() { version = old })
+
+	var out, errOut bytes.Buffer
+	code := run([]string{"lim", "--version"}, &out, &errOut)
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d (stderr=%q)", code, errOut.String())
+	}
+	if strings.TrimSpace(out.String()) != "v9.9.9-test" {
+		t.Fatalf("unexpected version output: %q", out.String())
+	}
+}
+
 func TestParseDockerEventsLine_ContainerCreate(t *testing.T) {
 	line := "2026-04-27T07:29:50.123456789Z container create 0123456789ab (image=alpine:3.20, name=foo)"
 	image, ts, ok := parseDockerEventsLine(line)

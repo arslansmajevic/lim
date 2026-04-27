@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+// version is overridden at build time via:
+//
+//	-ldflags "-X main.version=v0.0.1"
+var version = "dev"
+
 func main() {
 	os.Exit(run(os.Args, os.Stdout, os.Stderr))
 }
@@ -41,6 +46,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  lim            # show status and ensure docker-events monitoring is running")
 	fmt.Fprintln(w, "  lim --status   # print status only (no side effects)")
+	fmt.Fprintln(w, "  lim --version  # print version")
 	fmt.Fprintln(w, "  lim --location # print where timestamps are stored")
 	fmt.Fprintln(w, "  lim --shutdown # stop background monitoring")
 	fmt.Fprintln(w, "  lim list       # print images and their last-run timestamps")

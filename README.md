@@ -13,6 +13,7 @@ Examples:
 ```sh
 go run .              # shows status and ensures monitoring is running in background
 go run . --status     # prints status only
+go run . --version    # prints version
 go run . --location   # prints where timestamps are stored
 go run . list         # prints images + last-run timestamps
 go run . list --before 24h  # only images last run > 24 hours ago
