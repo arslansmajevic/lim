@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Build Linux binaries
+        run: make dist-linux
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum lim-linux-amd64 > lim-linux-amd64.sha256
+          sha256sum lim-linux-arm64 > lim-linux-arm64.sha256
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/lim-linux-amd64
+            dist/lim-linux-arm64
+            dist/lim-linux-amd64.sha256
+            dist/lim-linux-arm64.sha256
+          generate_release_notes: true

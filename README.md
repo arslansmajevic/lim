@@ -27,6 +27,33 @@ go build -o lim .
 
 ## Distribute (Linux)
 
+### Download from GitHub Releases
+
+1) Download the right binary for your machine (amd64 vs arm64) from the GitHub Release assets.
+
+Example (amd64) — replace `<version>` (e.g. `v0.1.0`) and `<owner>/<repo>`:
+
+```sh
+VERSION=<version>
+REPO=<owner>/<repo>
+
+curl -fsSL -o lim "https://github.com/${REPO}/releases/download/${VERSION}/lim-linux-amd64"
+curl -fsSL -o lim.sha256 "https://github.com/${REPO}/releases/download/${VERSION}/lim-linux-amd64.sha256"
+
+sha256sum -c lim.sha256
+
+chmod +x lim
+sudo install -m 0755 lim /usr/local/bin/lim
+```
+
+2) Run it:
+
+```sh
+lim
+```
+
+### Build yourself
+
 Build static Linux binaries:
 
 ```sh
