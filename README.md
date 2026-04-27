@@ -93,3 +93,6 @@ Notes:
 
 - `lim` requires Docker to be installed and the daemon reachable; otherwise it exits with an error.
 - Only one `lim` monitor instance runs at a time; re-running `lim` prints "monitor already running".
+- The installer creates a `systemd` service by default (Linux) so monitoring starts on boot, after Docker.
+- Control the service with `systemctl status lim.service`, `sudo systemctl stop lim.service`, `sudo systemctl start lim.service`.
+- `lim --shutdown` stops the monitor; if the systemd service is active, it will try to stop `lim.service` (may require sudo).

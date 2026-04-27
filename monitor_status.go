@@ -30,7 +30,7 @@ func writeMonitorStatus(st monitorStatus) error {
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), stateDirMode()); err != nil {
 		return fmt.Errorf("create status dir: %w", err)
 	}
 
@@ -41,7 +41,7 @@ func writeMonitorStatus(st monitorStatus) error {
 	b = append(b, '\n')
 
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+	if err := os.WriteFile(tmp, b, stateFileMode()); err != nil {
 		return fmt.Errorf("write temp status: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {

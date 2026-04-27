@@ -181,6 +181,13 @@ func startMonitorBackground() error {
 }
 
 func shutdownMonitor() error {
+	if stopped, err := stopSystemdServiceIfActive(); err != nil {
+		return err
+	} else if stopped {
+		_ = clearMonitorStatus()
+		return nil
+	}
+
 	lockPath, err := monitorLockPath()
 	if err != nil {
 		return err
@@ -206,6 +213,28 @@ func shutdownMonitor() error {
 	}
 
 	return errors.New("monitor did not stop in time")
+}
+
+func stopSystemdServiceIfActive() (stopped bool, err error) {
+	if _, err := exec.LookPath("systemctl"); err != nil {
+		return false, nil
+	}
+
+	// If we can query it and it's active, stop it.
+	if err := exec.Command("systemctl", "is-active", "--quiet", "lim.service").Run(); err != nil {
+		return false, nil
+	}
+
+	out, err := exec.Command("systemctl", "stop", "lim.service").CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return false, fmt.Errorf("failed to stop lim.service (try sudo): %s", msg)
+	}
+
+	return true, nil
 }
 
 func monitorPIDFromStatusOrLock(lockPath string) (int, bool) {

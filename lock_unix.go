@@ -20,7 +20,7 @@ func acquireLock(lockPath string) (*fileLock, bool, error) {
 		return nil, false, fmt.Errorf("create lock dir: %w", err)
 	}
 
-	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, lockFileMode())
 	if err != nil {
 		return nil, false, fmt.Errorf("open lock file: %w", err)
 	}

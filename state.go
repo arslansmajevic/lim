@@ -22,12 +22,39 @@ func stateFilePath() (string, error) {
 }
 
 func defaultStateFilePath() (string, error) {
+	if dir := os.Getenv("LIM_STATE_DIR"); dir != "" {
+		stateDir := filepath.Clean(dir)
+		return filepath.Join(stateDir, "images.json"), nil
+	}
+
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("get user config dir: %w", err)
 	}
 	stateDir := filepath.Join(configDir, "lim")
 	return filepath.Join(stateDir, "images.json"), nil
+}
+
+func stateDirMode() os.FileMode {
+	if os.Getenv("LIM_STATE_DIR") != "" {
+		return 0o755
+	}
+	return 0o700
+}
+
+func stateFileMode() os.FileMode {
+	if os.Getenv("LIM_STATE_DIR") != "" {
+		return 0o644
+	}
+	return 0o600
+}
+
+func lockFileMode() os.FileMode {
+	if os.Getenv("LIM_STATE_DIR") != "" {
+		// Allow any user to open the file (acquireLock uses O_RDWR).
+		return 0o666
+	}
+	return 0o600
 }
 
 func loadImageState(filePath string) (*imageState, error) {
@@ -77,7 +104,7 @@ func (s *imageState) setLastRun(image string, ts time.Time) error {
 
 func (s *imageState) save() error {
 	stateDir := filepath.Dir(s.filePath)
-	if err := os.MkdirAll(stateDir, 0o700); err != nil {
+	if err := os.MkdirAll(stateDir, stateDirMode()); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
 	}
 
@@ -100,7 +127,7 @@ func (s *imageState) save() error {
 	b = append(b, '\n')
 
 	tmp := s.filePath + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+	if err := os.WriteFile(tmp, b, stateFileMode()); err != nil {
 		return fmt.Errorf("write temp state: %w", err)
 	}
 	if err := os.Rename(tmp, s.filePath); err != nil {
