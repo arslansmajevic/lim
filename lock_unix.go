@@ -59,3 +59,25 @@ func (l *fileLock) setPID(pid int) error {
 	}
 	return l.f.Sync()
 }
+
+// isLockHeld reports whether another process currently holds the lock at lockPath.
+// It does not create the file, and returns (false, nil) when the file doesn't exist.
+func isLockHeld(lockPath string) (bool, error) {
+	f, err := os.OpenFile(lockPath, os.O_RDWR, 0)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	defer f.Close()
+
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		if err == syscall.EWOULDBLOCK {
+			return true, nil
+		}
+		return false, err
+	}
+	_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	return false, nil
+}

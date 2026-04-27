@@ -106,6 +106,18 @@ func ensureMonitorRunning(errOut io.Writer) error {
 		return fmt.Errorf("docker unavailable: %w", err)
 	}
 
+	// If the systemd unit is installed, prefer it over spawning a user background process.
+	// This avoids permission issues when the service uses a shared state dir like /var/lib/lim.
+	if os.Getenv("LIM_STATE_DIR") == "" && systemdUnitInstalled() {
+		if _, err := exec.LookPath("systemctl"); err == nil {
+			if err := exec.Command("systemctl", "is-active", "--quiet", "lim.service").Run(); err == nil {
+				return nil
+			}
+			return errors.New("lim.service is installed but not running (start it with: sudo systemctl start lim.service)")
+		}
+		return errors.New("lim.service is installed but systemctl was not found")
+	}
+
 	now := nowProvider().UTC()
 	running, age, ok := monitorHealth(now)
 	if running {
@@ -143,15 +155,11 @@ func isMonitorRunning() bool {
 	if err != nil {
 		return false
 	}
-	lock, acquired, err := acquireLock(lockPath)
+	held, err := isLockHeld(lockPath)
 	if err != nil {
 		return false
 	}
-	if acquired {
-		_ = lock.release()
-		return false
-	}
-	return true
+	return held
 }
 
 func monitorLockPath() (string, error) {
@@ -241,6 +249,15 @@ func stopSystemdServiceIfActive() (stopped bool, err error) {
 	}
 
 	return true, nil
+}
+
+func systemdUnitInstalled() bool {
+	for _, p := range systemdUnitPaths {
+		if _, err := os.Stat(p); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func monitorPIDFromStatusOrLock(lockPath string) (int, bool) {

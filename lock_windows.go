@@ -12,3 +12,7 @@ func acquireLock(lockPath string) (*fileLock, bool, error) {
 func (l *fileLock) release() error { return nil }
 
 func (l *fileLock) setPID(pid int) error { return nil }
+
+func isLockHeld(lockPath string) (bool, error) {
+	return false, nil
+}
