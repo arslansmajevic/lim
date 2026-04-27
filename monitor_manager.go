@@ -17,37 +17,55 @@ import (
 func rootCmd(args []string, out io.Writer, errOut io.Writer) int {
 	fs := flag.NewFlagSet("lim", flag.ContinueOnError)
 	fs.SetOutput(errOut)
+	statusOnly := fs.Bool("status", false, "Print status and exit")
 	shutdown := fs.Bool("shutdown", false, "Stop the background docker-events monitor")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
+	if *statusOnly {
+		if err := printStatus(out); err != nil {
+			fmt.Fprintf(errOut, "status error: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+
 	if *shutdown {
 		if err := shutdownMonitor(); err != nil {
 			fmt.Fprintf(errOut, "shutdown error: %v\n", err)
-			printUsageAndStatus(out, errOut)
+			printUsageAndStatus(out)
 			return 1
 		}
-		printUsageAndStatus(out, errOut)
+		printUsageAndStatus(out)
 		return 0
 	}
 
 	// Default UX: show usage + whether we're connected, and ensure the monitor is running.
 	if err := ensureMonitorRunning(errOut); err != nil {
 		fmt.Fprintf(errOut, "%v\n", err)
-		printUsageAndStatus(out, errOut)
+		printUsageAndStatus(out)
 		return 1
 	}
 
-	printUsageAndStatus(out, errOut)
+	printUsageAndStatus(out)
 	return 0
 }
 
-func printUsageAndStatus(out io.Writer, errOut io.Writer) {
+func printUsageAndStatus(out io.Writer) {
 	usage(out)
+	fmt.Fprintln(out)
+	_ = printStatusLines(out)
+}
+
+func printStatus(out io.Writer) error {
+	return printStatusLines(out)
+}
+
+func printStatusLines(out io.Writer) error {
 	fmt.Fprintln(out, "Status:")
 
-	if err := checkDockerAvailable(); err != nil {
+	if err := dockerAvailableCheck(); err != nil {
 		fmt.Fprintf(out, "  docker: unavailable (%v)\n", err)
 	} else {
 		fmt.Fprintln(out, "  docker: available")
@@ -56,17 +74,18 @@ func printUsageAndStatus(out io.Writer, errOut io.Writer) {
 	running, heartbeatAge, ok := monitorHealth(nowProvider())
 	if !running {
 		fmt.Fprintln(out, "  monitor: not running")
-		return
+		return nil
 	}
 	if ok {
 		fmt.Fprintf(out, "  monitor: running (heartbeat %s ago)\n", heartbeatAge.Truncate(time.Second))
-	} else {
-		fmt.Fprintln(out, "  monitor: running (status unknown)")
+		return nil
 	}
+	fmt.Fprintln(out, "  monitor: running (status unknown)")
+	return nil
 }
 
 func ensureMonitorRunning(errOut io.Writer) error {
-	if err := checkDockerAvailable(); err != nil {
+	if err := dockerAvailableCheck(); err != nil {
 		return fmt.Errorf("docker unavailable: %w", err)
 	}
 

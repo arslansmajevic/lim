@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+var dockerAvailableCheck = checkDockerAvailable
+
 func checkDockerAvailable() error {
 	if _, err := exec.LookPath("docker"); err != nil {
 		return fmt.Errorf("docker CLI not found in PATH")
