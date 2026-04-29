@@ -40,6 +40,21 @@ One-liner install (downloads latest release and installs to `/usr/local/bin/lim`
 curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/install.sh | sh
 ```
 
+Install as `root` but run the systemd service as an unprivileged user (e.g. `jenkins`):
+
+```sh
+# run this as root:
+curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/install.sh | SERVICE_USER=jenkins sh
+
+# or (if your sudo config allows passing env vars):
+curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/install.sh | sudo SERVICE_USER=jenkins sh
+```
+
+Notes:
+
+- `jenkins` must have access to Docker (typically by being in the `docker` group) for `lim.service` to work.
+- Managing the system service still requires `root`/`sudo` (e.g. `sudo systemctl status lim.service`).
+
 One-liner uninstall:
 
 ```sh
@@ -50,6 +65,12 @@ Optional uninstall + purge local config/state:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/uninstall.sh | PURGE_CONFIG=1 sh
+```
+
+No-sudo install (installs binary to a user-writable directory and skips systemd service):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/install.sh | INSTALL_DIR="$HOME/.local/bin" SYSTEMD_SERVICE=0 sh
 ```
 
 1) Download the right binary for your machine (amd64 vs arm64) from the GitHub Release assets.

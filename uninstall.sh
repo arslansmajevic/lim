@@ -4,6 +4,7 @@ set -eu
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 BINARY_NAME="lim"
 SYSTEMD_SERVICE="${SYSTEMD_SERVICE:-1}"
+STATE_DIR="${STATE_DIR:-/var/lib/lim}"
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1
@@ -72,7 +73,18 @@ if [ "${PURGE_CONFIG:-0}" = "1" ]; then
 fi
 
 # Optional: purge system-wide state directory used by the systemd service.
-if [ "${PURGE_CONFIG:-0}" = "1" ] && [ -d /var/lib/lim ]; then
-  rm -rf /var/lib/lim
-  echo "Purged /var/lib/lim" >&2
+if [ "${PURGE_CONFIG:-0}" = "1" ] && [ -d "$STATE_DIR" ]; then
+  if [ "$(id -u)" -ne 0 ]; then
+    if need_cmd sudo; then
+      SUDO="sudo"
+    else
+      echo "error: need sudo (or run as root) to purge $STATE_DIR" >&2
+      exit 1
+    fi
+  else
+    SUDO=""
+  fi
+
+  $SUDO rm -rf "$STATE_DIR"
+  echo "Purged $STATE_DIR" >&2
 fi

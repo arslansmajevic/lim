@@ -5,6 +5,9 @@ REPO="${REPO:-arslansmajevic/lim}"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 BINARY_NAME="lim"
 SYSTEMD_SERVICE="${SYSTEMD_SERVICE:-1}"
+SERVICE_USER="${SERVICE_USER:-}"
+SERVICE_GROUP="${SERVICE_GROUP:-}"
+STATE_DIR="${STATE_DIR:-/var/lib/lim}"
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1
@@ -98,8 +101,17 @@ if [ "$(id -u)" -ne 0 ]; then
   if need_cmd sudo; then
     SUDO="sudo"
   else
-    echo "error: need sudo (or run as root) to install into $INSTALL_DIR" >&2
-    exit 1
+    # If the install dir is user-writable, allow installing without sudo.
+    if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
+      SUDO=""
+    else
+      if mkdir -p "$INSTALL_DIR" 2>/dev/null && [ -w "$INSTALL_DIR" ]; then
+        SUDO=""
+      else
+        echo "error: need sudo (or run as root) to install into $INSTALL_DIR" >&2
+        exit 1
+      fi
+    fi
   fi
 else
   SUDO=""
@@ -113,21 +125,32 @@ echo "Installed $BINARY_NAME to $INSTALL_DIR/$BINARY_NAME" >&2
 if [ "$SYSTEMD_SERVICE" = "1" ] && need_cmd systemctl && [ -d /run/systemd/system ]; then
   echo "Installing systemd service lim.service..." >&2
 
-  STATE_DIR="/var/lib/lim"
-
-  if [ "$(id -u)" -ne 0 ]; then
-    if need_cmd sudo; then
-      SUDO="sudo"
-    else
-      echo "error: need sudo (or run as root) to install systemd service" >&2
-      exit 1
-    fi
-  else
-    SUDO=""
+  if [ "$(id -u)" -ne 0 ] && [ -z "$SUDO" ]; then
+    echo "warning: skipping systemd service install (need sudo/root)" >&2
+    echo "Run: $BINARY_NAME" >&2
+    exit 0
   fi
 
+  if [ -n "$SERVICE_USER" ]; then
+    if ! id "$SERVICE_USER" >/dev/null 2>&1; then
+      echo "error: SERVICE_USER '$SERVICE_USER' does not exist" >&2
+      exit 1
+    fi
+    if [ -z "$SERVICE_GROUP" ]; then
+      # Prefer the user's primary group.
+      SERVICE_GROUP="$(id -gn "$SERVICE_USER" 2>/dev/null || echo "")"
+    fi
+    if [ -z "$SERVICE_GROUP" ]; then
+      SERVICE_GROUP="$SERVICE_USER"
+    fi
+  fi
+
+  # Create/prepare a shared state directory for the service.
   $SUDO mkdir -p "$STATE_DIR"
   $SUDO chmod 0755 "$STATE_DIR"
+  if [ -n "$SERVICE_USER" ]; then
+    $SUDO chown "$SERVICE_USER:$SERVICE_GROUP" "$STATE_DIR"
+  fi
 
   UNIT_PATH="/etc/systemd/system/lim.service"
   $SUDO sh -c "cat > '$UNIT_PATH'" <<EOF
@@ -141,6 +164,7 @@ Wants=network-online.target
 Type=simple
 Environment=LIM_STATE_DIR=$STATE_DIR
 ExecStart=$INSTALL_DIR/$BINARY_NAME _monitor
+$( [ -n "$SERVICE_USER" ] && printf 'User=%s\nGroup=%s\n' "$SERVICE_USER" "$SERVICE_GROUP" )
 Restart=on-failure
 RestartSec=2
 
