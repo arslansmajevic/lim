@@ -6,29 +6,35 @@ import (
 	"testing"
 )
 
-func TestResolveStateDir_PrefersSystemdUnitWhenPresent(t *testing.T) {
-	oldGOOS := runtimeGOOS
-	oldUnitPaths := systemdUnitPaths
-	oldDefault := defaultSystemdStateDir
-	t.Cleanup(func() {
-		runtimeGOOS = oldGOOS
-		systemdUnitPaths = oldUnitPaths
-		defaultSystemdStateDir = oldDefault
-	})
-
-	runtimeGOOS = "linux"
-
-	tmp := t.TempDir()
-	unitPath := filepath.Join(tmp, "lim.service")
-	if err := os.WriteFile(unitPath, []byte("[Service]\nEnvironment=LIM_STATE_DIR=/var/lib/lim-test\n"), 0o644); err != nil {
-		t.Fatalf("write unit: %v", err)
-	}
-	systemdUnitPaths = []string{unitPath}
-	defaultSystemdStateDir = "/var/lib/lim-default"
-
+func TestResolveStateDir_DefaultIsUserConfigDir(t *testing.T) {
 	if err := os.Unsetenv("LIM_STATE_DIR"); err != nil {
-		t.Fatalf("unset env: %v", err)
+		t.Fatalf("unset LIM_STATE_DIR: %v", err)
 	}
+
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatalf("user config dir: %v", err)
+	}
+	expected := filepath.Join(configDir, "lim")
+
+	dir, kind, err := resolveStateDir()
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if kind != stateDirUser {
+		t.Fatalf("expected user kind, got %v", kind)
+	}
+	if dir != expected {
+		t.Fatalf("expected user config dir, got %q", dir)
+	}
+}
+
+func TestResolveStateDir_EnvOverridesDefault(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.Setenv("LIM_STATE_DIR", filepath.Join(tmp, "custom")); err != nil {
+		t.Fatalf("set LIM_STATE_DIR: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Unsetenv("LIM_STATE_DIR") })
 
 	dir, kind, err := resolveStateDir()
 	if err != nil {
@@ -36,37 +42,6 @@ func TestResolveStateDir_PrefersSystemdUnitWhenPresent(t *testing.T) {
 	}
 	if kind != stateDirShared {
 		t.Fatalf("expected shared kind, got %v", kind)
-	}
-	if dir != "/var/lib/lim-test" {
-		t.Fatalf("expected systemd env dir, got %q", dir)
-	}
-}
-
-func TestResolveStateDir_EnvOverridesSystemd(t *testing.T) {
-	oldGOOS := runtimeGOOS
-	oldUnitPaths := systemdUnitPaths
-	t.Cleanup(func() {
-		runtimeGOOS = oldGOOS
-		systemdUnitPaths = oldUnitPaths
-	})
-
-	runtimeGOOS = "linux"
-
-	tmp := t.TempDir()
-	unitPath := filepath.Join(tmp, "lim.service")
-	if err := os.WriteFile(unitPath, []byte("[Service]\nEnvironment=LIM_STATE_DIR=/var/lib/lim-test\n"), 0o644); err != nil {
-		t.Fatalf("write unit: %v", err)
-	}
-	systemdUnitPaths = []string{unitPath}
-
-	if err := os.Setenv("LIM_STATE_DIR", filepath.Join(tmp, "custom")); err != nil {
-		t.Fatalf("set env: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Unsetenv("LIM_STATE_DIR") })
-
-	dir, _, err := resolveStateDir()
-	if err != nil {
-		t.Fatalf("resolve: %v", err)
 	}
 	if dir != filepath.Join(tmp, "custom") {
 		t.Fatalf("expected env dir, got %q", dir)

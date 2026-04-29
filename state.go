@@ -1,15 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
-	"strings"
 	"time"
 )
 
@@ -19,17 +16,6 @@ type imageState struct {
 }
 
 var stateFilePathProvider = defaultStateFilePath
-
-// These vars exist so tests can override filesystem locations and OS detection.
-var runtimeGOOS = runtime.GOOS
-
-var systemdUnitPaths = []string{
-	"/etc/systemd/system/lim.service",
-	"/lib/systemd/system/lim.service",
-	"/usr/lib/systemd/system/lim.service",
-}
-
-var defaultSystemdStateDir = "/var/lib/lim"
 
 type stateDirKind int
 
@@ -55,78 +41,11 @@ func resolveStateDir() (dir string, kind stateDirKind, err error) {
 		return filepath.Clean(d), stateDirShared, nil
 	}
 
-	if d, ok := detectSystemdStateDir(); ok {
-		return d, stateDirShared, nil
-	}
-
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		return "", stateDirUser, fmt.Errorf("get user config dir: %w", err)
 	}
 	return filepath.Join(configDir, "lim"), stateDirUser, nil
-}
-
-func detectSystemdStateDir() (string, bool) {
-	if runtimeGOOS != "linux" {
-		return "", false
-	}
-
-	unitPath := ""
-	for _, p := range systemdUnitPaths {
-		if _, err := os.Stat(p); err == nil {
-			unitPath = p
-			break
-		}
-	}
-	if unitPath == "" {
-		return "", false
-	}
-
-	// If the unit file defines LIM_STATE_DIR, use it.
-	if d, ok := parseSystemdUnitEnv(unitPath, "LIM_STATE_DIR"); ok {
-		return filepath.Clean(d), true
-	}
-
-	// Fallback to the default used by our installer.
-	return filepath.Clean(defaultSystemdStateDir), true
-}
-
-func parseSystemdUnitEnv(unitPath string, key string) (string, bool) {
-	f, err := os.Open(unitPath)
-	if err != nil {
-		return "", false
-	}
-	defer f.Close()
-
-	needle := key + "="
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if !strings.HasPrefix(line, "Environment=") {
-			continue
-		}
-		rest := strings.TrimSpace(strings.TrimPrefix(line, "Environment="))
-		rest = strings.Trim(rest, "\"")
-		idx := strings.Index(rest, needle)
-		if idx < 0 {
-			continue
-		}
-		val := rest[idx+len(needle):]
-		// Value ends at whitespace or quote.
-		val = strings.TrimLeft(val, "\"")
-		for i, r := range val {
-			if r == ' ' || r == '\t' || r == '"' {
-				val = val[:i]
-				break
-			}
-		}
-		val = strings.TrimSpace(val)
-		if val == "" {
-			return "", false
-		}
-		return val, true
-	}
-	return "", false
 }
 
 func stateDirMode() os.FileMode {

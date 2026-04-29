@@ -106,18 +106,6 @@ func ensureMonitorRunning(errOut io.Writer) error {
 		return fmt.Errorf("docker unavailable: %w", err)
 	}
 
-	// If the systemd unit is installed, prefer it over spawning a user background process.
-	// This avoids permission issues when the service uses a shared state dir like /var/lib/lim.
-	if os.Getenv("LIM_STATE_DIR") == "" && systemdUnitInstalled() {
-		if _, err := exec.LookPath("systemctl"); err == nil {
-			if err := exec.Command("systemctl", "is-active", "--quiet", "lim.service").Run(); err == nil {
-				return nil
-			}
-			return errors.New("lim.service is installed but not running (start it with: sudo systemctl start lim.service)")
-		}
-		return errors.New("lim.service is installed but systemctl was not found")
-	}
-
 	now := nowProvider().UTC()
 	running, age, ok := monitorHealth(now)
 	if running {
@@ -195,13 +183,6 @@ func startMonitorBackground() error {
 }
 
 func shutdownMonitor() error {
-	if stopped, err := stopSystemdServiceIfActive(); err != nil {
-		return err
-	} else if stopped {
-		_ = clearMonitorStatus()
-		return nil
-	}
-
 	lockPath, err := monitorLockPath()
 	if err != nil {
 		return err
@@ -227,37 +208,6 @@ func shutdownMonitor() error {
 	}
 
 	return errors.New("monitor did not stop in time")
-}
-
-func stopSystemdServiceIfActive() (stopped bool, err error) {
-	if _, err := exec.LookPath("systemctl"); err != nil {
-		return false, nil
-	}
-
-	// If we can query it and it's active, stop it.
-	if err := exec.Command("systemctl", "is-active", "--quiet", "lim.service").Run(); err != nil {
-		return false, nil
-	}
-
-	out, err := exec.Command("systemctl", "stop", "lim.service").CombinedOutput()
-	if err != nil {
-		msg := strings.TrimSpace(string(out))
-		if msg == "" {
-			msg = err.Error()
-		}
-		return false, fmt.Errorf("failed to stop lim.service (try sudo): %s", msg)
-	}
-
-	return true, nil
-}
-
-func systemdUnitInstalled() bool {
-	for _, p := range systemdUnitPaths {
-		if _, err := os.Stat(p); err == nil {
-			return true
-		}
-	}
-	return false
 }
 
 func monitorPIDFromStatusOrLock(lockPath string) (int, bool) {

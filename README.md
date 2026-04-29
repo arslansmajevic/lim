@@ -40,21 +40,6 @@ One-liner install (downloads latest release and installs to `/usr/local/bin/lim`
 curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/install.sh | sh
 ```
 
-Install as `root` but run the systemd service as an unprivileged user (e.g. `jenkins`):
-
-```sh
-# run this as root:
-curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/install.sh | SERVICE_USER=jenkins sh
-
-# or (if your sudo config allows passing env vars):
-curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/install.sh | sudo SERVICE_USER=jenkins sh
-```
-
-Notes:
-
-- `jenkins` must have access to Docker (typically by being in the `docker` group) for `lim.service` to work.
-- Managing the system service still requires `root`/`sudo` (e.g. `sudo systemctl status lim.service`).
-
 One-liner uninstall:
 
 ```sh
@@ -67,10 +52,10 @@ Optional uninstall + purge local config/state:
 curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/uninstall.sh | PURGE_CONFIG=1 sh
 ```
 
-No-sudo install (installs binary to a user-writable directory and skips systemd service):
+No-sudo install (installs binary to a user-writable directory):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/install.sh | INSTALL_DIR="$HOME/.local/bin" SYSTEMD_SERVICE=0 sh
+curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/install.sh | INSTALL_DIR="$HOME/.local/bin" sh
 ```
 
 1) Download the right binary for your machine (amd64 vs arm64) from the GitHub Release assets.
@@ -114,7 +99,6 @@ lim
 Notes:
 
 - `lim` requires Docker to be installed and the daemon reachable; otherwise it exits with an error.
-- Only one `lim` monitor instance runs at a time; re-running `lim` prints "monitor already running".
-- The installer creates a `systemd` service by default (Linux) so monitoring starts on boot, after Docker.
-- Control the service with `systemctl status lim.service`, `sudo systemctl stop lim.service`, `sudo systemctl start lim.service`.
-- `lim --shutdown` stops the monitor; if the systemd service is active, it will try to stop `lim.service` (may require sudo).
+- Each user has their own timestamps file; see `lim --location`.
+- Only one `lim` monitor instance runs per user; re-running `lim` prints status and keeps the background monitor running.
+- `lim --shutdown` stops the current user's background monitor.
