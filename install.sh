@@ -2,8 +2,15 @@
 set -eu
 
 REPO="${REPO:-arslansmajevic/lim}"
-INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 BINARY_NAME="lim"
+
+TARGET_USER="$(id -un)"
+if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ]; then
+  TARGET_USER="$SUDO_USER"
+fi
+
+DEFAULT_INSTALL_DIR="/home/$TARGET_USER/bin"
+INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
 
 need_cmd() {
   command -v "$1" >/dev/null 2>&1
@@ -93,24 +100,33 @@ sha256_check "$TMP_DIR/$ASSET" "$SHA_PATH"
 
 chmod +x "$TMP_DIR/$ASSET"
 
-if [ "$(id -u)" -ne 0 ]; then
-  if need_cmd sudo; then
-    SUDO="sudo"
+SUDO=""
+
+# Prefer a non-sudo install when the target directory is user-writable.
+if [ ! -d "$INSTALL_DIR" ]; then
+  if mkdir -p "$INSTALL_DIR" 2>/dev/null; then
+    :
   else
-    # If the install dir is user-writable, allow installing without sudo.
-    if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
-      SUDO=""
+    # If we can't create the dir as the current user, fall back to sudo below.
+    :
+  fi
+fi
+
+if [ "$(id -u)" -ne 0 ]; then
+  if [ -d "$INSTALL_DIR" ] && [ -w "$INSTALL_DIR" ]; then
+    SUDO=""
+  else
+    if need_cmd sudo; then
+      SUDO="sudo"
     else
-      if mkdir -p "$INSTALL_DIR" 2>/dev/null && [ -w "$INSTALL_DIR" ]; then
-        SUDO=""
-      else
-        echo "error: need sudo (or run as root) to install into $INSTALL_DIR" >&2
-        exit 1
-      fi
+      echo "error: need sudo (or run as root) to install into $INSTALL_DIR" >&2
+      exit 1
     fi
   fi
-else
-  SUDO=""
+fi
+
+if [ -n "$SUDO" ]; then
+  $SUDO mkdir -p "$INSTALL_DIR"
 fi
 
 $SUDO install -m 0755 "$TMP_DIR/$ASSET" "$INSTALL_DIR/$BINARY_NAME"

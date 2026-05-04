@@ -34,7 +34,7 @@ go build -o lim .
 
 ### Download from GitHub Releases
 
-One-liner install (downloads latest release and installs to `/usr/local/bin/lim`):
+One-liner install (downloads latest release and installs to `/home/$USER/bin/lim`):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/arslansmajevic/lim/main/install.sh | sh
@@ -71,7 +71,8 @@ curl -fsSL -o lim.sha256 "https://github.com/${REPO}/releases/latest/download/li
 sha256sum -c lim.sha256
 
 chmod +x lim
-sudo install -m 0755 lim /usr/local/bin/lim
+mkdir -p "/home/$USER/bin"
+install -m 0755 lim "/home/$USER/bin/lim"
 ```
 
 2) Run it:
@@ -92,7 +93,8 @@ ls -lah dist/
 Install on a Linux machine so `lim` is runnable from anywhere:
 
 ```sh
-sudo install -m 0755 ./dist/lim-linux-amd64 /usr/local/bin/lim
+mkdir -p "/home/$USER/bin"
+install -m 0755 ./dist/lim-linux-amd64 "/home/$USER/bin/lim"
 lim
 ```
 
